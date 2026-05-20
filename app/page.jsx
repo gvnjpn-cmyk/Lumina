@@ -427,12 +427,26 @@ export default function App() {
       .catch(()=>setLyrics(null)).finally(()=>setLL(false));
   }, []);
 
-  const onEnded = useCallback(() => {
-    if (sleepTimer && sleepRemain <= 0) return; // sleep timer — stop
+  const onEnded = useCallback(async () => {
+    if (sleepTimer && sleepRemain <= 0) return;
     if (queue.length > 0) {
       const [next,...rest] = queue; setQueue(rest); loadTrack(next);
+    } else {
+      // Auto-related: continue with songs from same artist
+      const artist = activeTrack?.artists?.[0]?.name;
+      const currentId = activeTrack?.id;
+      if (!artist) return;
+      try {
+        const r = await fetch(`/api/spotify/search?q=${encodeURIComponent(artist + ' songs')}`);
+        const d = await r.json();
+        const related = (d.tracks||[]).filter(t => t.id !== currentId).slice(0, 8);
+        if (related.length > 0) {
+          setQueue(related.slice(1));
+          loadTrack(related[0]);
+        }
+      } catch {}
     }
-  }, [queue, loadTrack, sleepTimer, sleepRemain]);
+  }, [queue, loadTrack, sleepTimer, sleepRemain, activeTrack]);
 
   // Wire Media Session controls
   useEffect(() => {
@@ -504,6 +518,7 @@ export default function App() {
             queue={queue}
             onPlayFromQueue={t=>{ setQueue(q=>{const i=q.findIndex(x=>x.id===t.id);return i>=0?q.slice(i+1):q;}); loadTrack(t); }}
             onRemoveFromQueue={i=>setQueue(q=>q.filter((_,j)=>j!==i))}
+            onPlay={handlePlay}
             onAddToPlaylist={handleAddToPL}
             playlists={playlists}
             sleepTimer={sleepTimer}
