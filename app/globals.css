@@ -176,7 +176,24 @@ body {
   border-radius: 6px;
 }
 
-.eq-bar { display:inline-block; width:3px; border-radius:2px; background:#fff; animation: eq 0.8s ease infinite; }
+.eq-bar { display:inline-block; width:2.5px; border-radius:2px; background:#fff; animation: eq 0.7s ease infinite; }
+.eq-bar:nth-child(1) { animation-duration: 0.6s; }
+.eq-bar:nth-child(2) { animation-duration: 0.85s; }
+.eq-bar:nth-child(3) { animation-duration: 0.55s; }
+
+/* waveform bars for mini player */
+.wave-bar {
+  display: inline-block;
+  width: 2px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.7);
+  animation: eq 0.7s ease infinite;
+}
+.wave-bar:nth-child(1) { animation-duration: 0.5s; height: 6px; }
+.wave-bar:nth-child(2) { animation-duration: 0.7s; height: 10px; }
+.wave-bar:nth-child(3) { animation-duration: 0.4s; height: 8px; }
+.wave-bar:nth-child(4) { animation-duration: 0.9s; height: 12px; }
+.wave-bar:nth-child(5) { animation-duration: 0.6s; height: 6px; }
 
 .btn-press { transition: transform 0.1s ease, opacity 0.1s ease; }
 .btn-press:active { transform: scale(0.9); opacity: 0.7; }
