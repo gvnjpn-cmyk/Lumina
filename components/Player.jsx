@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import LyricsDisplay from './LyricsDisplay';
 import QueuePanel from './QueuePanel';
+import ArtistPanel from './ArtistPanel';
 
 const fmt = s => !s||isNaN(s)?'0:00':`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 const hexToRgb = h => { if(!h) return '20,20,20'; return `${parseInt(h.slice(1,3),16)},${parseInt(h.slice(3,5),16)},${parseInt(h.slice(5,7),16)}`; };
@@ -15,7 +16,7 @@ export default function Player({
   onTogglePlay, onSeek, onSkip,
   lyrics, lyricsLoading,
   ytError, audioLoading,
-  queue, onPlayFromQueue, onRemoveFromQueue,
+  queue, onPlayFromQueue, onRemoveFromQueue, onPlay,
   onAddToPlaylist, playlists,
   sleepTimer, sleepRemaining, onSetSleep, onClearSleep,
 }) {
@@ -32,6 +33,7 @@ export default function Player({
   const [shareImg, setShareImg]  = useState(null);
   const [sharing, setSharing]    = useState(false);
   const [sleepMenu, setSleepMenu]= useState(false);
+  const [artistPanel, setArtistPanel] = useState(false);
   const touchY = useRef(null);
 
   const title   = track?.name || '';
@@ -115,7 +117,7 @@ export default function Player({
           <div className="flex-1 min-w-0 pt-2 flex flex-col gap-3">
             <div>
               <h1 className="text-white font-bold text-lg leading-tight" style={{ letterSpacing:'-0.02em', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{title||'—'}</h1>
-              <p className="text-white/50 text-sm truncate mt-0.5">{artist}</p>
+              <button onClick={()=>setArtistPanel(true)} className="text-white/50 text-sm truncate mt-0.5 text-left hover:text-white/80 transition-colors block w-full">{artist}</button>
               <p className="text-white/25 text-xs truncate mt-0.5">{album}</p>
             </div>
             {audioLoading && <p className="text-white/25 text-xs animate-pulse">Searching audio…</p>}
@@ -313,6 +315,9 @@ export default function Player({
           </div>
         </div>
       )}
+
+      {/* Artist panel */}
+      {artistPanel && <ArtistPanel artistName={track?.artists?.[0]?.name} onPlay={onPlay} onClose={()=>setArtistPanel(false)}/>}
 
       {/* Queue */}
       {queueOpen && <QueuePanel queue={queue} currentTrack={track} onPlay={onPlayFromQueue} onRemove={onRemoveFromQueue} onClose={()=>setQO(false)}/>}
