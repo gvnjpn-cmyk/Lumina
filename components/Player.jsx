@@ -21,7 +21,7 @@ export default function Player({
   onAddToPlaylist, playlists,
   sleepTimer, sleepRemaining, onSetSleep, onClearSleep,
   onPlay, onPlayNext, onAddToQueue,
-  showToast,
+  showToast, onRetry,
 }) {
   const [liked, setLiked]        = useState(false);
   const [lyricsOpen, setLO]      = useState(false);
@@ -168,7 +168,12 @@ export default function Player({
               </button>
             </div>
             {audioLoading && <p className="text-white/25 text-xs animate-pulse">Searching audio…</p>}
-            {ytError && <p className="text-white/25 text-xs">⚠ No audio found</p>}
+            {ytError && (
+              <button onClick={()=>onRetry?.()} className="btn-press flex items-center gap-1.5 text-white/35 text-xs">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                Retry audio
+              </button>
+            )}
             <div className="flex items-center gap-3">
               <button onClick={() => { setLiked(l=>!l); showToast?.(liked?'Removed from liked':'Added to liked', liked?'💔':'❤️'); }} className={`btn-press ${liked?'text-white':'text-white/30'}`}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill={liked?'currentColor':'none'} stroke="currentColor" strokeWidth="1.8"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
