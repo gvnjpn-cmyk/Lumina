@@ -6,6 +6,7 @@ import TrackCard from '@/components/TrackCard';
 import Navbar from '@/components/Navbar';
 import MiniPlayer from '@/components/MiniPlayer';
 import { getPlaylists, createPlaylist, deletePlaylist, addTrackToPlaylist } from '@/lib/playlist';
+import ToastContainer, { useToast } from '@/components/Toast';
 import { getRecent, addRecent, getHistory, addHistory, clearHistory } from '@/lib/storage';
 
 const Player = dynamic(() => import('@/components/Player'), { ssr: false });
@@ -181,7 +182,7 @@ function HomeView({ onPlay, activeTrackId, recent }) {
 /* ─── Search ─── */
 const SUGGESTIONS = ['Surat Cinta Untuk Starla','Blinding Lights','As It Was','Flowers','Selamat Tinggal','Apa Mungkin','Stay','Dynamite','Levitating','Cruel Summer'];
 
-function SearchView({ onPlay, activeTrackId }) {
+function SearchView({ onPlay, activeTrackId, onPlayNext, onAddToQueue, onAddToPlaylist, showToast }) {
   const [q, setQ]         = useState('');
   const [results, setRes] = useState(null);
   const [loading, setLoad]= useState(false);
@@ -253,7 +254,7 @@ function SearchView({ onPlay, activeTrackId }) {
                 ))}
               </div>
             )}
-            {tab==='tracks'&&<div className="flex flex-col gap-1">{tracks.length===0?<p className="text-white/25 text-sm text-center py-8">No tracks</p>:tracks.map(t=><TrackCard key={t.id} track={t} onClick={tr=>onPlay(tr,tracks)} active={activeTrackId===t.id}/>)}</div>}
+            {tab==='tracks'&&<div className="flex flex-col gap-1">{tracks.length===0?<p className="text-white/25 text-sm text-center py-8">No tracks</p>:tracks.map(t=><TrackCard key={t.id} track={t} onClick={tr=>onPlay(tr,tracks)} active={activeTrackId===t.id} onPlayNext={onPlayNext} onAddToQueue={onAddToQueue} onAddToPlaylist={tr=>onAddToPlaylist(null,tr)}/>)}</div>}
             {tab==='artists'&&<div className="flex flex-col gap-1">{artists.map(a=>(
               <button key={a.id} onClick={()=>{setQ(a.name);search(a.name);}} className="card-row flex items-center gap-3 px-3 py-2.5 w-full text-left">
                 <div style={{width:44,height:44,borderRadius:99,overflow:'hidden',background:'#2c2c2e',flexShrink:0,position:'relative'}}>
@@ -365,10 +366,14 @@ export default function App() {
   const [lyricsLoading, setLL]  = useState(false);
   const [queue, setQueue]       = useState([]);
   const [playlists, setPlists]  = useState([]);
+  const { toasts, show: showToast } = useToast();
   const [recent, setRecent]     = useState([]);
   const [sleepTimer, setSleep]  = useState(null);   // minutes set
   const [sleepRemain, setSleepR]= useState(0);       // seconds remaining
   const sleepRef = useRef(null);
+  const audioCtxRef   = useRef(null);
+  const silentSrcRef  = useRef(null);
+  const bgEnabledRef  = useRef(false);
   const sleepTickRef = useRef(null);
 
   useEffect(() => { setPlists(getPlaylists()); setRecent(getRecent()); }, []);
@@ -397,6 +402,24 @@ export default function App() {
       // togglePlay will pause via the hook
     }
   }, [sleepRemain, sleepTimer]);
+
+  // Keep audio alive in background via Web Audio silent loop
+  const enableBackgroundPlay = useCallback(() => {
+    if (bgEnabledRef.current) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // 1-second silent buffer, looping forever
+      const buf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(ctx.destination);
+      src.start(0);
+      audioCtxRef.current = ctx;
+      silentSrcRef.current = src;
+      bgEnabledRef.current = true;
+    } catch {}
+  }, []);
 
   const onTimeUpdate = useCallback((ct, dur) => { setCT(ct); if(dur) setDur(dur); }, []);
 
@@ -457,12 +480,26 @@ export default function App() {
     navigator.mediaSession.setActionHandler('previoustrack', () => seek(0));
   }, [queue, loadTrack]);
 
+  // Resume AudioContext when page becomes visible again
+  useEffect(() => {
+    const onVisible = () => {
+      if (audioCtxRef.current?.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   useEffect(() => {
     if (!('mediaSession' in navigator) || !duration) return;
     try { navigator.mediaSession.setPositionState({ duration, playbackRate:1, position: Math.min(currentTime, duration) }); } catch {}
   }, [currentTime, duration]);
 
-  const { togglePlay, seek, skip } = useYouTubePlayer({ videoId, onTimeUpdate, onPlayStateChange: setPlaying, onEnded });
+  const { togglePlay, seek, skip } = useYouTubePlayer({ videoId, onTimeUpdate, onPlayStateChange: (playing) => {
+      setPlaying(playing);
+      if (playing) enableBackgroundPlay();
+    }, onEnded });
 
   // Sleep: auto-pause when timer hits 0
   useEffect(() => {
@@ -492,7 +529,7 @@ export default function App() {
 
       <div className="flex-1 overflow-hidden relative">
         {tab==='home'    && <HomeView    onPlay={handlePlay} activeTrackId={activeTrack?.id} recent={recent}/>}
-        {tab==='search'  && <SearchView  onPlay={handlePlay} activeTrackId={activeTrack?.id}/>}
+        {tab==='search'  && <SearchView  onPlay={handlePlay} activeTrackId={activeTrack?.id} onPlayNext={t=>{setQueue(q=>[t,...q]);showToast("Playing next","⏭");}} onAddToQueue={t=>{setQueue(q=>[...q,t]);showToast("Added to queue","➕");}} onAddToPlaylist={handleAddToPL} showToast={showToast}/>}
         {tab==='library' && <LibraryView playlists={playlists} onPlay={handlePlay} activeTrackId={activeTrack?.id}
                               onCreatePlaylist={n=>{createPlaylist(n);setPlists(getPlaylists());}}
                               onDeletePlaylist={id=>{deletePlaylist(id);setPlists(getPlaylists());}}/>}
@@ -520,6 +557,9 @@ export default function App() {
             onRemoveFromQueue={i=>setQueue(q=>q.filter((_,j)=>j!==i))}
             onPlay={handlePlay}
             onAddToPlaylist={handleAddToPL}
+            onPlayNext={t=>{setQueue(q=>[t,...q]);showToast("Playing next","⏭");}}
+            onAddToQueue={t=>{setQueue(q=>[...q,t]);showToast("Added to queue","➕");}}
+            showToast={showToast}
             playlists={playlists}
             sleepTimer={sleepTimer}
             sleepRemaining={sleepRemain}
