@@ -7,7 +7,7 @@ import Navbar from '@/components/Navbar';
 import MiniPlayer from '@/components/MiniPlayer';
 import { getPlaylists, createPlaylist, deletePlaylist, addTrackToPlaylist } from '@/lib/playlist';
 import ToastContainer, { useToast } from '@/components/Toast';
-import { getRecent, addRecent, getHistory, addHistory, clearHistory } from '@/lib/storage';
+import { getRecent, addRecent, getHistory, addHistory, clearHistory, getPrefs, savePrefs } from '@/lib/storage';
 
 const Player = dynamic(() => import('@/components/Player'), { ssr: false });
 
@@ -95,42 +95,59 @@ function useYouTubePlayer({ videoId, onTimeUpdate, onPlayStateChange, onEnded })
 }
 
 /* ─── Home ─── */
+const TREND_CATS = [
+  { id:'foryou',    label:'For You' },
+  { id:'indonesia', label:'🇮🇩 Indonesia' },
+  { id:'global',    label:'🌍 Global' },
+  { id:'kpop',      label:'🇰🇷 K-Pop' },
+];
+
 function HomeView({ onPlay, activeTrackId, recent }) {
-  const [trending, setTrending] = useState([]);
+  const [cat, setCat]         = useState('foryou');
+  const [trending, setTrending] = useState({});
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    fetch('/api/trending').then(r=>r.json()).then(d=>setTrending(d.tracks||[])).catch(()=>{}).finally(()=>setLoading(false));
-  }, []);
+    if (trending[cat]) return;
+    setLoading(true);
+    fetch(`/api/trending?cat=${cat}`)
+      .then(r=>r.json()).then(d=>{
+        setTrending(prev => ({ ...prev, [cat]: d.tracks||[] }));
+      }).catch(()=>{})
+      .finally(()=>setLoading(false));
+  }, [cat]);
 
+  useEffect(() => { if (trending[cat]) setLoading(false); }, [trending, cat]);
+
+  const tracks = trending[cat] || [];
   const hour = new Date().getHours();
   const greeting = hour<12?'Good morning':hour<18?'Good afternoon':'Good evening';
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="px-5 pt-16 pb-5">
+      <div className="px-5 pt-16 pb-4">
         <p className="text-white/40 text-sm mb-1">{greeting}</p>
-        <p className="text-white text-2xl font-bold" style={{letterSpacing:'-0.02em'}}>What's hot right now</p>
+        <p className="text-white text-2xl font-bold" style={{letterSpacing:'-0.02em'}}>What's hot</p>
       </div>
 
       {/* Recently played */}
       {recent.length > 0 && (
-        <div className="mb-6">
+        <div className="mb-5">
           <p className="label px-5 mb-3">Recently played</p>
           <div className="flex gap-3 overflow-x-auto px-5 pb-2" style={{scrollbarWidth:'none'}}>
             {recent.slice(0,8).map(t => {
               const cover = t.album?.images?.[1]?.url||t.album?.images?.[0]?.url;
               return (
-                <button key={t.id} onClick={()=>onPlay(t,[])} className="flex-shrink-0 flex flex-col gap-2" style={{width:80}}>
-                  <div className="relative" style={{width:80,height:80,borderRadius:12,overflow:'hidden',background:'#1c1c1e'}}>
-                    {cover && <Image src={cover} alt={t.name} fill className="object-cover" sizes="80px"/>}
+                <button key={t.id} onClick={()=>onPlay(t,[])} className="flex-shrink-0 flex flex-col gap-2" style={{width:76}}>
+                  <div className="relative" style={{width:76,height:76,borderRadius:12,overflow:'hidden',background:'#1c1c1e'}}>
+                    {cover && <Image src={cover} alt={t.name} fill className="object-cover" sizes="76px"/>}
                     {activeTrackId===t.id && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                        <div className="flex gap-0.5 items-end h-4">{[0,1,2].map(i=><div key={i} className="eq-bar" style={{animationDelay:`${i*0.15}s`}}/>)}</div>
+                        <div className="flex gap-0.5 items-end h-4">{[0,1,2].map(i=><div key={i} className="eq-bar" style={{animationDelay:`${i*0.2}s`}}/>)}</div>
                       </div>
                     )}
                   </div>
-                  <p className="text-white/70 text-xs truncate leading-tight">{t.name}</p>
+                  <p className="text-white/60 text-xs truncate leading-tight">{t.name}</p>
                 </button>
               );
             })}
@@ -138,7 +155,17 @@ function HomeView({ onPlay, activeTrackId, recent }) {
         </div>
       )}
 
-      {/* Trending */}
+      {/* Category tabs */}
+      <div className="flex gap-2 overflow-x-auto px-4 pb-3" style={{scrollbarWidth:'none'}}>
+        {TREND_CATS.map(tc => (
+          <button key={tc.id} onClick={()=>setCat(tc.id)}
+            className={`pill flex-shrink-0 text-sm transition-all ${cat===tc.id?'bg-white text-black':'text-white/60'}`}>
+            {tc.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Track list */}
       <div className="px-4 pb-6">
         {loading ? (
           <div className="flex flex-col gap-2">
@@ -153,12 +180,12 @@ function HomeView({ onPlay, activeTrackId, recent }) {
               </div>
             ))}
           </div>
-        ) : trending.length===0 ? (
-          <p className="text-white/25 text-sm text-center py-12">Could not load trending</p>
+        ) : tracks.length===0 ? (
+          <p className="text-white/25 text-sm text-center py-12">Could not load</p>
         ) : (
           <div className="flex flex-col gap-1">
-            {trending.map((t,i)=>(
-              <button key={t.id} onClick={()=>onPlay(t,trending)}
+            {tracks.map((t,i)=>(
+              <button key={t.id} onClick={()=>onPlay(t,tracks)}
                 className="card-row flex items-center gap-3 px-3 py-2.5 w-full text-left">
                 <span className="text-white/25 text-sm font-bold w-5 text-center flex-shrink-0">{i+1}</span>
                 <div className="relative flex-shrink-0" style={{width:44,height:44,borderRadius:8,overflow:'hidden',background:'#2c2c2e'}}>
@@ -376,7 +403,10 @@ export default function App() {
   const bgEnabledRef  = useRef(false);
   const sleepTickRef = useRef(null);
 
-  useEffect(() => { setPlists(getPlaylists()); setRecent(getRecent()); }, []);
+  useEffect(() => {
+    setPlists(getPlaylists()); setRecent(getRecent());
+    // Restore last volume preference (handled by YT player setVolume in hook)
+  }, []);
 
   // Sleep timer countdown
   const startSleep = useCallback((mins) => {
@@ -536,7 +566,7 @@ export default function App() {
       </div>
 
       {activeTrack && !playerOpen && (
-        <MiniPlayer track={activeTrack} isPlaying={isPlaying}
+        <MiniPlayer track={activeTrack} isPlaying={isPlaying} currentTime={currentTime} duration={duration}
           onOpen={()=>setOpen(true)} onTogglePlay={togglePlay}
           onSkipNext={()=>{ if(queue.length>0){const[n,...r]=queue;setQueue(r);loadTrack(n);} }}
           onClose={()=>setTrack(null)}/>
@@ -560,6 +590,14 @@ export default function App() {
             onPlayNext={t=>{setQueue(q=>[t,...q]);showToast("Playing next","⏭");}}
             onAddToQueue={t=>{setQueue(q=>[...q,t]);showToast("Added to queue","➕");}}
             showToast={showToast}
+            onRetry={()=>{
+              if(!activeTrack) return;
+              const t=activeTrack.name||'', a=activeTrack.artists?.[0]?.name||'';
+              setYtErr(false); setAL(true);
+              fetch(`/api/youtube?title=${encodeURIComponent(t)}&artist=${encodeURIComponent(a)}`)
+                .then(r=>r.json()).then(d=>{ d.videoId?setVid(d.videoId):setYtErr(true); })
+                .catch(()=>setYtErr(true)).finally(()=>setAL(false));
+            }}
             playlists={playlists}
             sleepTimer={sleepTimer}
             sleepRemaining={sleepRemain}
