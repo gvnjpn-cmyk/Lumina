@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.vercel.lumina_mu_snowy.twa",
+    "sha256_cert_fingerprints": ["27:E6:8E:54:4A:7F:78:4B:45:1B:4E:9B:43:A6:80:46:2E:D1:EE:2D:05:79:10:9C:FC:23:E9:83:63:81:83:F0"]
+  }
+}]
