@@ -1,6 +1,6 @@
 # Lumina 🎵
 
-Music player dengan synced lyrics, liquid glass UI hitam-putih.
+Music player dengan synced lyrics, liquid glass UI , apple music style
 
 ## Stack
 - **Next.js 14** App Router
