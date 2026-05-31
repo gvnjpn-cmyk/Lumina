@@ -2,5 +2,11 @@
   "buildCommand": "next build",
   "outputDirectory": ".next",
   "installCommand": "npm install",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "rewrites": [
+    {
+      "source": "/.well-known/assetlinks.json",
+      "destination": "/api/assetlinks"
+    }
+  ]
 }
